@@ -1,45 +1,44 @@
-# test.py
 import pandas as pd
-import joblib
-from rapidfuzz import process, fuzz
 import streamlit as st
-from io import BytesIO  # 🔥 Needed for Excel download
+import joblib
 
-# Load saved model data
+# Load the saved model
 desc_list, cost_list = joblib.load("cost_model.joblib")
 
-# Define prediction function
-def get_best_match_cost(desc, choices, costs, threshold=90):
-    match, score, _ = process.extractOne(desc, choices, scorer=fuzz.ratio)
-    return costs[choices.index(match)] if score >= threshold else "Not Found"
+# Page title
+st.title("🧮 Equipment Cost Estimator")
+st.markdown("Upload an Excel file with a 'Description' column to predict equipment cost.")
 
-# Streamlit Web UI
-st.title("🧠 Asset Description Cost Predictor")
+# Upload input Excel file
+uploaded_file = st.file_uploader("Choose an Excel file", type="xlsx")
 
-uploaded_file = st.file_uploader("📤 Upload an Excel file with 'Description' column", type=["xlsx"])
+# Predict cost
+if uploaded_file is not None:
+    df = pd.read_excel(uploaded_file)
 
-if uploaded_file:
-    # Read file
-    new_data = pd.read_excel(uploaded_file)
-    if "Description" not in new_data.columns:
-        st.error("❌ 'Description' column not found in uploaded Excel file.")
+    if "Description" not in df.columns:
+        st.error("The uploaded Excel file must have a 'Description' column.")
     else:
-        new_data["Description"] = new_data["Description"].str.strip().str.upper()
-        new_data["Predicted Cost"] = new_data["Description"].apply(
-            lambda x: get_best_match_cost(x, desc_list, cost_list)
-        )
+        from rapidfuzz import process
 
+        def fuzzy_predict(description):
+            match, score, index = process.extractOne(description, desc_list)
+            return cost_list[index]
+
+        # Apply prediction
+        df["Predicted Cost"] = df["Description"].apply(fuzzy_predict)
+
+        # Round the results to 2 decimal places
+        df["Predicted Cost"] = df["Predicted Cost"].round(2)
+
+        # Display result
         st.success("✅ Prediction Complete!")
-        st.write(new_data)
+        st.dataframe(df)
 
-        # ✅ Fix: Convert to Excel using BytesIO
-        output = BytesIO()
-        new_data.to_excel(output, index=False, engine='openpyxl')
-        output.seek(0)
-
+        # Download button
         st.download_button(
-            label="📥 Download Result as Excel",
-            data=output,
-            file_name="predicted_cost_output.xlsx",
+            label="📥 Download Results as Excel",
+            data=df.to_excel(index=False, engine='openpyxl'),
+            file_name="predicted_costs.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
