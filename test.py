@@ -6,7 +6,7 @@ import streamlit as st
 from io import BytesIO  # 🔥 Needed for Excel download
 
 # Load saved model data
-desc_list, cost_list = joblib.load(r"C:\Users\DELL\Desktop\faiz\cost estimator\cost_model.joblib")
+desc_list, cost_list = joblib.load("cost_model.joblib")
 
 # Define prediction function
 def get_best_match_cost(desc, choices, costs, threshold=90):
